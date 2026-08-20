@@ -2,13 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Protected Ticketing System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticketing Portal - Firebase</title>
+    <!-- SheetJS for Excel Exports -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         * { box-sizing: border-box; font-family: Arial, sans-serif; margin: 0; padding: 0; }
         body { background: #eef2f5; padding: 20px; }
         header { background: #1a252f; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; border-radius: 5px; }
         select, input, button { padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; width: 100%; }
         button { background: #27ae60; color: white; cursor: pointer; border: none; font-weight: bold; }
+        button:hover { opacity: 0.9; }
         .main { display: flex; gap: 20px; margin-top: 20px; }
         .left { flex: 3; }
         .right { flex: 1; background: white; padding: 15px; border-radius: 5px; height: 80vh; overflow-y: auto; }
@@ -27,32 +31,32 @@
 </head>
 <body>
 
-<!-- LOGIN FORM -->
+<!-- LOGIN SCREEN -->
 <div id="loginScreen" class="login-overlay">
-    <h2>System Login</h2>
-    <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Please sign in to access the system</p>
+    <h2>Helpdesk Login</h2>
+    <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Login with Firebase Credentials</p>
     <form onsubmit="handleLogin(event)">
-        <label>Username</label>
-        <input type="text" id="loginUser" required placeholder="admin or emp">
+        <label>Email</label>
+        <input type="email" id="loginEmail" required placeholder="user@domain.com">
         <label>Password</label>
-        <input type="password" id="loginPass" required placeholder="admin123 or emp123">
-        <button type="submit" style="margin-top: 15px; padding: 10px;">Login</button>
+        <input type="password" id="loginPass" required placeholder="••••••••">
+        <button type="submit" style="margin-top: 15px; padding: 10px;">Sign In</button>
     </form>
 </div>
 
-<!-- APP DASHBOARD -->
+<!-- MAIN DASHBOARD -->
 <div id="appScreen" class="hidden">
     <header>
-        <h2>Helpdesk Portal</h2>
+        <h2>Helpdesk Portal (Firebase Live)</h2>
         <div>
-            Logged in as: <strong id="userDisplay"></strong> (<span id="roleDisplay"></span>) | 
+            User: <strong id="userDisplay"></strong> (<span id="roleDisplay"></span>) | 
             <button onclick="handleLogout()" style="width: auto; background: #c0392b; padding: 5px 10px;">Logout</button>
         </div>
     </header>
 
     <div class="main">
         <div class="left">
-            <!-- EMPLOYEE VIEW -->
+            <!-- EMPLOYEE FORM -->
             <div id="employeeView">
                 <div class="card">
                     <div>
@@ -76,45 +80,44 @@
                         </div>
                         <div><label>Call End Time</label><input type="time" id="qEndTime" required></div>
                         <div style="grid-column: span 2;">
-                            <button type="submit" style="padding: 12px;">Submit Query</button>
+                            <button type="submit" style="padding: 12px;">Save & Generate Ticket</button>
                         </div>
                     </form>
                 </div>
             </div>
 
-            <!-- ADMIN VIEW -->
+            <!-- ADMIN CONTROL PANEL -->
             <div id="adminView" class="hidden">
                 <div class="card">
-                    <h3>Admin Management</h3>
+                    <h3>Admin Management Panel</h3>
                     <div class="grid">
                         <div>
                             <h4>Add Department</h4>
-                            <input type="text" id="newDept"><button onclick="addDept()">Add Dept</button>
+                            <input type="text" id="newDept"><button onclick="addMaster('departments', 'newDept')">Add Dept</button>
                         </div>
                         <div>
                             <h4>Add Query Type</h4>
-                            <input type="text" id="newType"><button onclick="addType()">Add Type</button>
+                            <input type="text" id="newType"><button onclick="addMaster('queryTypes', 'newType')">Add Type</button>
                         </div>
                         <div>
-                            <h4>Create / Reset User</h4>
-                            <input type="text" id="uName" placeholder="Username">
-                            <input type="password" id="uPass" placeholder="Password">
-                            <select id="uRole">
+                            <h4>Assign User Role</h4>
+                            <input type="email" id="targetEmail" placeholder="user@domain.com">
+                            <select id="targetRole">
                                 <option value="employee">Employee</option>
                                 <option value="admin">Admin</option>
                             </select>
-                            <button onclick="addUser()">Save User</button>
+                            <button onclick="assignRole()">Set User Role</button>
                         </div>
                         <div>
-                            <h4>Data Maintenance</h4>
-                            <button onclick="exportAndClean()" style="background:#8e44ad;">Auto-Export & Clean (>30 Days)</button>
+                            <h4>Monthly Maintenance</h4>
+                            <button onclick="exportAndClean()" style="background:#8e44ad;">Auto-Export & Clean Old (>30 Days)</button>
                         </div>
                     </div>
                 </div>
 
                 <div class="card">
                     <h3>All System Tickets</h3>
-                    <input type="text" id="searchBox" placeholder="Search entries..." oninput="loadQueries()">
+                    <input type="text" id="searchBox" placeholder="Search Barcode, Name, Ticket..." oninput="renderQueries()">
                     <table>
                         <thead>
                             <tr>
@@ -133,85 +136,90 @@
             </div>
         </div>
 
+        <!-- RIGHT SIDEBAR (PENDING QUERIES) -->
         <div class="right">
-            <h3>Pending Queries</h3>
+            <h3>Pending Queries (1hr SLA)</h3>
             <div id="pendingList"></div>
         </div>
     </div>
 </div>
 
-<script>
+<!-- FIREBASE SDKs -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getDatabase, ref, set, push, onValue, update, remove, get, child } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    // 1. REPLACE THIS WITH YOUR FIREBASE CONFIG
+    const firebaseConfig = {
+        apiKey: "YOUR_API_KEY",
+        authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+        databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+        projectId: "YOUR_PROJECT_ID",
+        storageBucket: "YOUR_PROJECT_ID.appspot.com",
+        messagingSenderId: "YOUR_SENDER_ID",
+        appId: "YOUR_APP_ID"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    let currentUser = null;
+    let currentUserRole = 'employee';
+    let allQueries = {};
     let currentCategory = 'INCOMING';
 
-    async function checkAuth() {
-        const res = await fetch('/api/me');
-        if (res.ok) {
-            const user = await res.json();
-            showDashboard(user);
+    // Authentication State
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            currentUser = user;
+            const userSanitized = user.email.replace('.', '_');
+            const roleSnap = await get(child(ref(db), `roles/${userSanitized}`));
+            currentUserRole = roleSnap.exists() ? roleSnap.val() : 'employee';
+
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('appScreen').classList.remove('hidden');
+            document.getElementById('userDisplay').innerText = user.email;
+            document.getElementById('roleDisplay').innerText = currentUserRole.toUpperCase();
+
+            if (currentUserRole === 'admin') {
+                document.getElementById('adminView').classList.remove('hidden');
+            } else {
+                document.getElementById('adminView').classList.add('hidden');
+            }
+
+            listenToMasters();
+            listenToQueries();
         } else {
             document.getElementById('loginScreen').classList.remove('hidden');
             document.getElementById('appScreen').classList.add('hidden');
         }
-    }
+    });
 
-    async function handleLogin(e) {
+    window.handleLogin = (e) => {
         e.preventDefault();
-        const username = document.getElementById('loginUser').value;
-        const password = document.getElementById('loginPass').value;
+        const email = document.getElementById('loginEmail').value;
+        const pass = document.getElementById('loginPass').value;
+        signInWithEmailAndPassword(auth, email, pass).catch(err => alert(err.message));
+    };
 
-        const res = await fetch('/api/login', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ username, password })
-        });
+    window.handleLogout = () => signOut(auth);
 
-        const data = await res.json();
-        if (res.ok) {
-            showDashboard(data);
-        } else {
-            alert(data.error);
-        }
-    }
-
-    async function handleLogout() {
-        await fetch('/api/logout', { method: 'POST' });
-        location.reload();
-    }
-
-    function showDashboard(user) {
-        document.getElementById('loginScreen').classList.add('hidden');
-        document.getElementById('appScreen').classList.remove('hidden');
-        document.getElementById('userDisplay').innerText = user.username;
-        document.getElementById('roleDisplay').innerText = user.role.toUpperCase();
-
-        if (user.role === 'admin') {
-            document.getElementById('adminView').classList.remove('hidden');
-        } else {
-            document.getElementById('adminView').classList.add('hidden');
-        }
-
-        loadMasters();
-        loadQueries();
-    }
-
-    async function loadMasters() {
-        const res = await fetch('/api/masters');
-        if(!res.ok) return;
-        const data = await res.json();
-        document.getElementById('qDept').innerHTML = '<option value="">Select Dept</option>' + data.departments.map(d=>`<option value="${d}">${d}</option>`).join('');
-        document.getElementById('qType').innerHTML = '<option value="">Select Type</option>' + data.types.map(t=>`<option value="${t}">${t}</option>`).join('');
-    }
-
-    function setCategory(cat, btn) {
+    // Dynamic Form Category Switcher
+    window.setCategory = (cat, btn) => {
         currentCategory = cat;
         document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         document.getElementById('formTitle').innerText = `${cat} Query Form`;
-    }
+    };
 
-    async function submitQuery(e) {
+    // Submit New Ticket
+    window.submitQuery = (e) => {
         e.preventDefault();
-        const payload = {
+        const ticketNo = 'TICK-' + Math.floor(100000 + Math.random() * 900000);
+        const queryData = {
+            ticketNo: ticketNo,
             category: currentCategory,
             dept: document.getElementById('qDept').value,
             queryType: document.getElementById('qType').value,
@@ -220,100 +228,132 @@
             callerNo: document.getElementById('qCallerNo').value,
             clientCode: document.getElementById('qClientCode').value,
             callAction: document.getElementById('qAction').value,
-            endTime: document.getElementById('qEndTime').value
+            endTime: document.getElementById('qEndTime').value,
+            startTime: new Date().toISOString(),
+            status: 'PENDING'
         };
 
-        const res = await fetch('/api/queries', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(payload)
+        set(ref(db, 'queries/' + ticketNo), queryData)
+            .then(() => {
+                alert(`Query Submitted! Ticket: ${ticketNo}`);
+                document.getElementById('queryForm').reset();
+            })
+            .catch(err => alert(err.message));
+    };
+
+    // Live Database Listeners
+    function listenToMasters() {
+        onValue(ref(db, 'masters'), (snapshot) => {
+            const data = snapshot.val() || {};
+            const depts = data.departments ? Object.values(data.departments) : ['Sales', 'Support', 'Billing'];
+            const types = data.queryTypes ? Object.values(data.queryTypes) : ['Technical', 'Billing', 'General'];
+
+            document.getElementById('qDept').innerHTML = '<option value="">Select Dept</option>' + depts.map(d=>`<option value="${d}">${d}</option>`).join('');
+            document.getElementById('qType').innerHTML = '<option value="">Select Type</option>' + types.map(t=>`<option value="${t}">${t}</option>`).join('');
         });
-        const result = await res.json();
-        alert(`Ticket Created: ${result.ticketNo}`);
-        document.getElementById('queryForm').reset();
-        loadQueries();
     }
 
-    async function loadQueries() {
-        const search = document.getElementById('searchBox').value;
-        const res = await fetch(`/api/queries?search=${encodeURIComponent(search)}`);
-        if(!res.ok) return;
-        const data = await res.json();
+    function listenToQueries() {
+        onValue(ref(db, 'queries'), (snapshot) => {
+            allQueries = snapshot.val() || {};
+            window.renderQueries();
+        });
+    }
 
+    window.renderQueries = () => {
+        const search = document.getElementById('searchBox').value.toLowerCase();
         const tbody = document.getElementById('queryTableBody');
-        if(tbody) {
-            tbody.innerHTML = data.map(q => `
-                <tr>
-                    <td>${q.ticket_no}</td>
-                    <td>${q.category}</td>
-                    <td>${q.caller_name}</td>
-                    <td>${q.dept}</td>
-                    <td>${q.barcode}</td>
-                    <td><b>${q.status}</b></td>
-                    <td>
-                        <button onclick="updateStatus('${q.ticket_no}', 'RESOLVED')">Resolve</button>
-                    </td>
-                </tr>
-            `).join('');
+        const pendingContainer = document.getElementById('pendingList');
+        
+        tbody.innerHTML = '';
+        pendingContainer.innerHTML = '';
+
+        Object.values(allQueries).forEach(q => {
+            const isMatch = !search || 
+                q.ticketNo.toLowerCase().includes(search) || 
+                q.callerName.toLowerCase().includes(search) || 
+                q.barcode.toLowerCase().includes(search);
+
+            if (isMatch && tbody) {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${q.ticketNo}</td>
+                        <td>${q.category}</td>
+                        <td>${q.callerName}</td>
+                        <td>${q.dept}</td>
+                        <td>${q.barcode}</td>
+                        <td><b>${q.status}</b></td>
+                        <td><button onclick="updateTicket('${q.ticketNo}', 'RESOLVED')">Resolve</button></td>
+                    </tr>
+                `;
+            }
+
+            if (q.status === 'PENDING' || q.status === 'FORWARDED') {
+                const diffMins = Math.floor((new Date() - new Date(q.startTime)) / 60000);
+                pendingContainer.innerHTML += `
+                    <div class="pending-card ${diffMins >= 60 ? 'overdue' : ''}">
+                        <strong>#${q.ticketNo}</strong> (${q.category})<br>
+                        <b>Name:</b> ${q.callerName} | <b>BC:</b> ${q.barcode}<br>
+                        <b>Elapsed:</b> ${diffMins} Mins ${diffMins >= 60 ? '<b>(OVERDUE)</b>' : ''}<br>
+                        <button onclick="updateTicket('${q.ticketNo}', 'RESOLVED')" style="font-size:10px; margin-top:5px;">Resolve</button>
+                    </div>
+                `;
+            }
+        });
+    };
+
+    window.updateTicket = (ticketNo, newStatus) => {
+        update(ref(db, `queries/${ticketNo}`), { status: newStatus });
+    };
+
+    window.addMaster = (path, inputId) => {
+        const val = document.getElementById(inputId).value;
+        if(val) {
+            push(ref(db, `masters/${path}`), val);
+            document.getElementById(inputId).value = '';
+        }
+    };
+
+    window.assignRole = () => {
+        const email = document.getElementById('targetEmail').value.replace('.', '_');
+        const role = document.getElementById('targetRole').value;
+        if(email) {
+            set(ref(db, `roles/${email}`), role).then(() => alert('User Role Updated successfully!'));
+        }
+    };
+
+    // Excel Export & Auto Cleanup (> 30 Days)
+    window.exportAndClean = async () => {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        
+        const archiveData = [];
+        const updates = {};
+
+        Object.values(allQueries).forEach(q => {
+            if (new Date(q.startTime) <= thirtyDaysAgo) {
+                archiveData.push(q);
+                updates[`queries/${q.ticketNo}`] = null; // Delete from Firebase
+            }
+        });
+
+        if (archiveData.length === 0) {
+            return alert("No queries older than 30 days found.");
         }
 
-        const pendingContainer = document.getElementById('pendingList');
-        pendingContainer.innerHTML = '';
-        data.filter(q => q.status === 'PENDING' || q.status === 'FORWARDED').forEach(q => {
-            const diffMins = Math.floor((new Date() - new Date(q.start_time)) / 60000);
-            pendingContainer.innerHTML += `
-                <div class="pending-card ${diffMins >= 60 ? 'overdue' : ''}">
-                    <strong>#${q.ticket_no}</strong> (${q.category})<br>
-                    <b>Name:</b> ${q.caller_name} | <b>BC:</b> ${q.barcode}<br>
-                    <b>Time Elapsed:</b> ${diffMins} Mins ${diffMins >= 60 ? '<b>(OVERDUE)</b>' : ''}<br>
-                    <button onclick="updateStatus('${q.ticket_no}', 'RESOLVED')" style="font-size:10px; margin-top:5px;">Resolve</button>
-                </div>
-            `;
-        });
-    }
+        // Export to Excel file download
+        const worksheet = XLSX.utils.json_to_sheet(archiveData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Archived_Queries");
+        XLSX.writeFile(workbook, `Ticketing_Archive_${new Date().toISOString().slice(0,10)}.xlsx`);
 
-    async function updateStatus(ticketNo, status) {
-        await fetch(`/api/queries/${ticketNo}`, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ status })
-        });
-        loadQueries();
-    }
+        // Batch delete from Database
+        await update(ref(db), updates);
+        alert(`Exported and cleaned ${archiveData.length} entries older than 30 days.`);
+    };
 
-    async function addUser() {
-        const username = document.getElementById('uName').value;
-        const password = document.getElementById('uPass').value;
-        const role = document.getElementById('uRole').value;
-        const res = await fetch('/api/users', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ username, password, role })
-        });
-        const data = await res.json();
-        alert(data.message || data.error);
-    }
-
-    async function addDept() {
-        const name = document.getElementById('newDept').value;
-        await fetch('/api/departments', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) });
-        loadMasters();
-    }
-
-    async function addType() {
-        const name = document.getElementById('newType').value;
-        await fetch('/api/query-types', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) });
-        loadMasters();
-    }
-
-    async function exportAndClean() {
-        const res = await fetch('/api/export-and-cleanup');
-        const data = await res.json();
-        alert(data.message);
-        loadQueries();
-    }
-
-    window.onload = checkAuth;
+    // Live refresh timer for SLA updates every 30s
+    setInterval(window.renderQueries, 30000);
 </script>
 </body>
 </html>
