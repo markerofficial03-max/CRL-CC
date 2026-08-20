@@ -31,17 +31,42 @@
 </head>
 <body>
 
-<!-- LOGIN SCREEN -->
+<!-- 1. LOGIN & REGISTER SCREEN -->
 <div id="loginScreen" class="login-overlay">
-    <h2>Helpdesk System Login</h2>
-    <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Sign in with your user credentials</p>
-    <form onsubmit="handleLogin(event)">
-        <label>Email</label>
-        <input type="email" id="loginEmail" required placeholder="user@domain.com">
-        <label>Password</label>
-        <input type="password" id="loginPass" required placeholder="••••••••">
-        <button type="submit" style="margin-top: 15px; padding: 10px;">Sign In</button>
-    </form>
+    <!-- LOGIN BOX -->
+    <div id="loginBox">
+        <h2>Helpdesk System Login</h2>
+        <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Sign in with your credentials</p>
+        <form onsubmit="handleLogin(event)">
+            <label>Email</label>
+            <!-- 2. DEFAULT CREDENTIALS ADDED -->
+            <input type="email" id="loginEmail" required value="anupmishra@gmail.com">
+            <label>Password</label>
+            <input type="password" id="loginPass" required value="anup123">
+            <button type="submit" style="margin-top: 15px; padding: 10px;">Sign In</button>
+        </form>
+        <p style="font-size: 13px; margin-top: 15px; text-align: center;">
+            Don't have an account? 
+            <a href="#" onclick="toggleAuthMode('register')" style="color: #2980b9; font-weight: bold;">Sign Up</a>
+        </p>
+    </div>
+
+    <!-- REGISTER BOX -->
+    <div id="registerBox" class="hidden">
+        <h2>Create Account</h2>
+        <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Register a new user account</p>
+        <form onsubmit="handleRegister(event)">
+            <label>Email</label>
+            <input type="email" id="regEmail" required value="anupmishra@gmail.com">
+            <label>Password</label>
+            <input type="password" id="regPass" required value="anup123">
+            <button type="submit" style="margin-top: 15px; padding: 10px; background: #2980b9;">Create Account</button>
+        </form>
+        <p style="font-size: 13px; margin-top: 15px; text-align: center;">
+            Already have an account? 
+            <a href="#" onclick="toggleAuthMode('login')" style="color: #2980b9; font-weight: bold;">Sign In</a>
+        </p>
+    </div>
 </div>
 
 <!-- DASHBOARD APPLICATION -->
@@ -150,10 +175,16 @@
 <!-- FIREBASE MODULE LOGIC -->
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { 
+        getAuth, 
+        signInWithEmailAndPassword, 
+        createUserWithEmailAndPassword, 
+        signOut, 
+        onAuthStateChanged 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { getDatabase, ref, set, push, onValue, update, get, child } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // PASTE YOUR REAL FIREBASE API CONFIGURATION KEYS HERE
+    // 3. FIREBASE API CONFIGURATION KEYS
     const firebaseConfig = {
         apiKey: "YOUR_ACTUAL_API_KEY",
         authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
@@ -200,11 +231,36 @@
         }
     });
 
+    window.toggleAuthMode = (mode) => {
+        if (mode === 'register') {
+            document.getElementById('loginBox').classList.add('hidden');
+            document.getElementById('registerBox').classList.remove('hidden');
+        } else {
+            document.getElementById('registerBox').classList.add('hidden');
+            document.getElementById('loginBox').classList.remove('hidden');
+        }
+    };
+
     window.handleLogin = (e) => {
         e.preventDefault();
         const email = document.getElementById('loginEmail').value;
         const pass = document.getElementById('loginPass').value;
         signInWithEmailAndPassword(auth, email, pass).catch(err => alert("Login Error: " + err.message));
+    };
+
+    window.handleRegister = (e) => {
+        e.preventDefault();
+        const email = document.getElementById('regEmail').value;
+        const pass = document.getElementById('regPass').value;
+
+        createUserWithEmailAndPassword(auth, email, pass)
+            .then(async (userCredential) => {
+                const user = userCredential.user;
+                const userSanitized = user.email.replace(/\./g, '_');
+                await set(ref(db, `roles/${userSanitized}`), 'employee');
+                alert("Account created successfully!");
+            })
+            .catch(err => alert("Registration Error: " + err.message));
     };
 
     window.handleLogout = () => signOut(auth);
