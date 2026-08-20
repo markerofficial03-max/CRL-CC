@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ticketing Portal - Firebase</title>
+    <title>Helpdesk Ticketing Portal</title>
     <!-- SheetJS for Excel Exports -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
@@ -16,7 +16,7 @@
         .main { display: flex; gap: 20px; margin-top: 20px; }
         .left { flex: 3; }
         .right { flex: 1; background: white; padding: 15px; border-radius: 5px; height: 80vh; overflow-y: auto; }
-        .card { background: white; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        .card { background: white; padding: 15px; border-radius: 5px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .tab { width: auto; display: inline-block; padding: 8px 15px; background: #95a5a6; }
         .tab.active { background: #2980b9; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
@@ -33,8 +33,8 @@
 
 <!-- LOGIN SCREEN -->
 <div id="loginScreen" class="login-overlay">
-    <h2>Helpdesk Login</h2>
-    <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Login with Firebase Credentials</p>
+    <h2>Helpdesk System Login</h2>
+    <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Sign in with your user credentials</p>
     <form onsubmit="handleLogin(event)">
         <label>Email</label>
         <input type="email" id="loginEmail" required placeholder="user@domain.com">
@@ -44,10 +44,10 @@
     </form>
 </div>
 
-<!-- MAIN DASHBOARD -->
+<!-- DASHBOARD APPLICATION -->
 <div id="appScreen" class="hidden">
     <header>
-        <h2>Helpdesk Portal (Firebase Live)</h2>
+        <h2>Ticketing Portal (Database Active)</h2>
         <div>
             User: <strong id="userDisplay"></strong> (<span id="roleDisplay"></span>) | 
             <button onclick="handleLogout()" style="width: auto; background: #c0392b; padding: 5px 10px;">Logout</button>
@@ -56,7 +56,7 @@
 
     <div class="main">
         <div class="left">
-            <!-- EMPLOYEE FORM -->
+            <!-- EMPLOYEE FORM VIEW -->
             <div id="employeeView">
                 <div class="card">
                     <div>
@@ -67,10 +67,10 @@
                     <form id="queryForm" onsubmit="submitQuery(event)" class="grid">
                         <div><label>Department</label><select id="qDept" required></select></div>
                         <div><label>Query Type</label><select id="qType" required></select></div>
-                        <div><label>Barcode</label><input type="text" id="qBarcode" required></div>
-                        <div><label>Caller Name</label><input type="text" id="qCallerName" required></div>
-                        <div><label>Caller No.</label><input type="text" id="qCallerNo" required></div>
-                        <div><label>Client Code</label><input type="text" id="qClientCode" required></div>
+                        <div><label>Barcode</label><input type="text" id="qBarcode" placeholder="Enter Barcode" required></div>
+                        <div><label>Caller Name</label><input type="text" id="qCallerName" placeholder="Enter Caller Name" required></div>
+                        <div><label>Caller No.</label><input type="text" id="qCallerNo" placeholder="Enter Phone Number" required></div>
+                        <div><label>Client Code</label><input type="text" id="qClientCode" placeholder="Enter Client Code" required></div>
                         <div>
                             <label>Call Action</label>
                             <select id="qAction">
@@ -86,18 +86,20 @@
                 </div>
             </div>
 
-            <!-- ADMIN CONTROL PANEL -->
+            <!-- ADMIN CONTROL PANEL VIEW -->
             <div id="adminView" class="hidden">
                 <div class="card">
                     <h3>Admin Management Panel</h3>
                     <div class="grid">
                         <div>
                             <h4>Add Department</h4>
-                            <input type="text" id="newDept"><button onclick="addMaster('departments', 'newDept')">Add Dept</button>
+                            <input type="text" id="newDept" placeholder="Department Name">
+                            <button onclick="addMaster('departments', 'newDept')">Add Dept</button>
                         </div>
                         <div>
                             <h4>Add Query Type</h4>
-                            <input type="text" id="newType"><button onclick="addMaster('queryTypes', 'newType')">Add Type</button>
+                            <input type="text" id="newType" placeholder="Query Type Name">
+                            <button onclick="addMaster('queryTypes', 'newType')">Add Type</button>
                         </div>
                         <div>
                             <h4>Assign User Role</h4>
@@ -106,7 +108,7 @@
                                 <option value="employee">Employee</option>
                                 <option value="admin">Admin</option>
                             </select>
-                            <button onclick="assignRole()">Set User Role</button>
+                            <button onclick="assignRole()">Set Role</button>
                         </div>
                         <div>
                             <h4>Monthly Maintenance</h4>
@@ -116,8 +118,8 @@
                 </div>
 
                 <div class="card">
-                    <h3>All System Tickets</h3>
-                    <input type="text" id="searchBox" placeholder="Search Barcode, Name, Ticket..." oninput="renderQueries()">
+                    <h3>Database Records Overview</h3>
+                    <input type="text" id="searchBox" placeholder="Search Barcode, Caller Name, Ticket No..." oninput="renderQueries()">
                     <table>
                         <thead>
                             <tr>
@@ -136,23 +138,24 @@
             </div>
         </div>
 
-        <!-- RIGHT SIDEBAR (PENDING QUERIES) -->
+        <!-- RIGHT SIDEBAR (LIVE PENDING & 1HR SLA MONITOR) -->
         <div class="right">
             <h3>Pending Queries (1hr SLA)</h3>
+            <p style="font-size:11px; color:#666; margin-bottom:10px;">Updates live from database</p>
             <div id="pendingList"></div>
         </div>
     </div>
 </div>
 
-<!-- FIREBASE SDKs -->
+<!-- FIREBASE MODULE LOGIC -->
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getDatabase, ref, set, push, onValue, update, remove, get, child } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, set, push, onValue, update, get, child } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // 1. REPLACE THIS WITH YOUR FIREBASE CONFIG
+    // PASTE YOUR REAL FIREBASE API CONFIGURATION KEYS HERE
     const firebaseConfig = {
-        apiKey: "YOUR_API_KEY",
+        apiKey: "YOUR_ACTUAL_API_KEY",
         authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
         databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
         projectId: "YOUR_PROJECT_ID",
@@ -170,11 +173,11 @@
     let allQueries = {};
     let currentCategory = 'INCOMING';
 
-    // Authentication State
+    // Auth Change Listener
     onAuthStateChanged(auth, async (user) => {
         if (user) {
             currentUser = user;
-            const userSanitized = user.email.replace('.', '_');
+            const userSanitized = user.email.replace(/\./g, '_');
             const roleSnap = await get(child(ref(db), `roles/${userSanitized}`));
             currentUserRole = roleSnap.exists() ? roleSnap.val() : 'employee';
 
@@ -201,12 +204,11 @@
         e.preventDefault();
         const email = document.getElementById('loginEmail').value;
         const pass = document.getElementById('loginPass').value;
-        signInWithEmailAndPassword(auth, email, pass).catch(err => alert(err.message));
+        signInWithEmailAndPassword(auth, email, pass).catch(err => alert("Login Error: " + err.message));
     };
 
     window.handleLogout = () => signOut(auth);
 
-    // Dynamic Form Category Switcher
     window.setCategory = (cat, btn) => {
         currentCategory = cat;
         document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
@@ -214,7 +216,6 @@
         document.getElementById('formTitle').innerText = `${cat} Query Form`;
     };
 
-    // Submit New Ticket
     window.submitQuery = (e) => {
         e.preventDefault();
         const ticketNo = 'TICK-' + Math.floor(100000 + Math.random() * 900000);
@@ -235,21 +236,20 @@
 
         set(ref(db, 'queries/' + ticketNo), queryData)
             .then(() => {
-                alert(`Query Submitted! Ticket: ${ticketNo}`);
+                alert(`Query Recorded Successfully!\nTicket ID: ${ticketNo}`);
                 document.getElementById('queryForm').reset();
             })
-            .catch(err => alert(err.message));
+            .catch(err => alert("Database Error: " + err.message));
     };
 
-    // Live Database Listeners
     function listenToMasters() {
         onValue(ref(db, 'masters'), (snapshot) => {
             const data = snapshot.val() || {};
             const depts = data.departments ? Object.values(data.departments) : ['Sales', 'Support', 'Billing'];
-            const types = data.queryTypes ? Object.values(data.queryTypes) : ['Technical', 'Billing', 'General'];
+            const types = data.queryTypes ? Object.values(data.queryTypes) : ['Technical Issue', 'Billing Inquiry', 'General'];
 
-            document.getElementById('qDept').innerHTML = '<option value="">Select Dept</option>' + depts.map(d=>`<option value="${d}">${d}</option>`).join('');
-            document.getElementById('qType').innerHTML = '<option value="">Select Type</option>' + types.map(t=>`<option value="${t}">${t}</option>`).join('');
+            document.getElementById('qDept').innerHTML = '<option value="">Select Dept</option>' + depts.map(d => `<option value="${d}">${d}</option>`).join('');
+            document.getElementById('qType').innerHTML = '<option value="">Select Type</option>' + types.map(t => `<option value="${t}">${t}</option>`).join('');
         });
     }
 
@@ -265,37 +265,45 @@
         const tbody = document.getElementById('queryTableBody');
         const pendingContainer = document.getElementById('pendingList');
         
-        tbody.innerHTML = '';
-        pendingContainer.innerHTML = '';
+        if (tbody) tbody.innerHTML = '';
+        if (pendingContainer) pendingContainer.innerHTML = '';
 
         Object.values(allQueries).forEach(q => {
             const isMatch = !search || 
                 q.ticketNo.toLowerCase().includes(search) || 
                 q.callerName.toLowerCase().includes(search) || 
-                q.barcode.toLowerCase().includes(search);
+                q.barcode.toLowerCase().includes(search) ||
+                q.clientCode.toLowerCase().includes(search);
 
             if (isMatch && tbody) {
                 tbody.innerHTML += `
                     <tr>
                         <td>${q.ticketNo}</td>
                         <td>${q.category}</td>
-                        <td>${q.callerName}</td>
+                        <td>${q.callerName} (${q.callerNo})</td>
                         <td>${q.dept}</td>
                         <td>${q.barcode}</td>
                         <td><b>${q.status}</b></td>
-                        <td><button onclick="updateTicket('${q.ticketNo}', 'RESOLVED')">Resolve</button></td>
+                        <td>
+                            <button onclick="updateTicket('${q.ticketNo}', 'RESOLVED')">Resolve</button>
+                            <button onclick="updateTicket('${q.ticketNo}', 'FORWARDED')" style="background:#e67e22;">Forward</button>
+                        </td>
                     </tr>
                 `;
             }
 
             if (q.status === 'PENDING' || q.status === 'FORWARDED') {
                 const diffMins = Math.floor((new Date() - new Date(q.startTime)) / 60000);
+                const isOverdue = diffMins >= 60;
+
                 pendingContainer.innerHTML += `
-                    <div class="pending-card ${diffMins >= 60 ? 'overdue' : ''}">
+                    <div class="pending-card ${isOverdue ? 'overdue' : ''}">
                         <strong>#${q.ticketNo}</strong> (${q.category})<br>
                         <b>Name:</b> ${q.callerName} | <b>BC:</b> ${q.barcode}<br>
-                        <b>Elapsed:</b> ${diffMins} Mins ${diffMins >= 60 ? '<b>(OVERDUE)</b>' : ''}<br>
-                        <button onclick="updateTicket('${q.ticketNo}', 'RESOLVED')" style="font-size:10px; margin-top:5px;">Resolve</button>
+                        <b>Dept:</b> ${q.dept}<br>
+                        <b>Time Elapsed:</b> ${diffMins} Mins ${isOverdue ? '<b>(1HR OVERDUE)</b>' : ''}<br>
+                        <button onclick="updateTicket('${q.ticketNo}', 'RESOLVED')" style="font-size:10px; margin-top:5px;">Mark Resolved</button>
+                        <button onclick="updateTicket('${q.ticketNo}', 'FORWARDED')" style="font-size:10px; margin-top:5px; background:#e67e22;">Forward</button>
                     </div>
                 `;
             }
@@ -315,14 +323,13 @@
     };
 
     window.assignRole = () => {
-        const email = document.getElementById('targetEmail').value.replace('.', '_');
+        const email = document.getElementById('targetEmail').value.replace(/\./g, '_');
         const role = document.getElementById('targetRole').value;
         if(email) {
-            set(ref(db, `roles/${email}`), role).then(() => alert('User Role Updated successfully!'));
+            set(ref(db, `roles/${email}`), role).then(() => alert('User Role successfully updated!'));
         }
     };
 
-    // Excel Export & Auto Cleanup (> 30 Days)
     window.exportAndClean = async () => {
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -333,26 +340,23 @@
         Object.values(allQueries).forEach(q => {
             if (new Date(q.startTime) <= thirtyDaysAgo) {
                 archiveData.push(q);
-                updates[`queries/${q.ticketNo}`] = null; // Delete from Firebase
+                updates[`queries/${q.ticketNo}`] = null;
             }
         });
 
         if (archiveData.length === 0) {
-            return alert("No queries older than 30 days found.");
+            return alert("No query records older than 30 days were found.");
         }
 
-        // Export to Excel file download
         const worksheet = XLSX.utils.json_to_sheet(archiveData);
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Archived_Queries");
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Archive_Queries");
         XLSX.writeFile(workbook, `Ticketing_Archive_${new Date().toISOString().slice(0,10)}.xlsx`);
 
-        // Batch delete from Database
         await update(ref(db), updates);
-        alert(`Exported and cleaned ${archiveData.length} entries older than 30 days.`);
+        alert(`Successfully exported to Excel and deleted ${archiveData.length} records older than 30 days.`);
     };
 
-    // Live refresh timer for SLA updates every 30s
     setInterval(window.renderQueries, 30000);
 </script>
 </body>
