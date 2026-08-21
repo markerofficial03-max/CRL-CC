@@ -1,0 +1,108 @@
+/* Custom Styles for Call & Query Support System */
+
+:root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --accent: #0ea5e9;
+    --bg-main: #f8fafc;
+}
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: var(--bg-main);
+    color: #1e293b;
+    overflow-x: hidden;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Monospace & Ticket Code styling */
+.font-mono-code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    letter-spacing: 0.05em;
+}
+
+/* SLA Pulsing Animations */
+@keyframes pulse-glow-red {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgba(225, 29, 72, 0);
+    }
+}
+
+@keyframes pulse-glow-amber {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 6px rgba(245, 158, 11, 0);
+    }
+}
+
+.pulse-red-border {
+    animation: pulse-glow-red 1.5s infinite;
+}
+
+.pulse-amber-border {
+    animation: pulse-glow-amber 2s infinite;
+}
+
+/* Glassmorphism Card Effects */
+.glass-card {
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+/* Tab active state indicators */
+.tab-btn.active {
+    border-bottom: 3px solid #2563eb;
+    color: #1d4ed8;
+    font-weight: 600;
+}
+
+/* Search input with inner icon highlight */
+.search-input-field:focus {
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* Badge styles */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 9999px;
+    border-width: 1px;
+}
+
+/* Transitions */
+.transition-all-fast {
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Tooltip / hover badge */
+.hover-lift {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.hover-lift:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+}
